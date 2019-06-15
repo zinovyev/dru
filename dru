@@ -1,0 +1,123 @@
+#! /usr/bin/env bash 
+
+VERSION=0.0.1
+DOCKER_USER_ID=$(id -u)
+DOCKER_GROUP_ID=$(id -g)
+
+function main() {
+  # Parse output
+  for arg in $@; do
+    shift
+    case "$arg" in
+      -d|--dir)
+        OPT_DIR=$1
+      ;; 
+      -t|--tag)
+        OPT_TAG=$1
+      ;;
+      -e|--exec)
+        OPT_EXEC=$*
+      ;;
+      -v|--verbose)
+        OPT_VERBOSE=true
+      ;;
+      -r|--rails)
+        OPT_RAILS=$1
+      ;;
+      run|rails|irb|help|update)
+        COMMAND=$arg
+      ;;
+      *)
+    esac
+  done
+
+  # Set default values
+  [[ -z "$OPT_DIR" ]] && OPT_DIR=$PWD
+  [[ -z "$OPT_TAG" ]] && OPT_TAG="alpine"
+  # [[ -z "$OPT_EXEC" ]] && OPT_EXEC="sh"
+  [[ -z "$COMMAND" ]] && COMMAND="help"
+
+
+  # Debug
+  if [[ $OPT_VERBOSE ]]; then
+    echo "DEBUG: dir: ${OPT_DIR} | tag: ${OPT_TAG} | exec: ${OPT_EXEC} | command: ${COMMAND}"
+  fi
+
+  # Execute commands
+  case $COMMAND in
+    run)
+      cmd_run
+    ;;
+
+    irb)
+      cmd_irb
+    ;;
+
+    rails)
+      cmd_rails
+    ;;
+
+    update)
+      cmd_update
+    ;;
+
+    *)
+      cmd_help
+    ;;
+  esac
+}
+
+function cmd_help {
+  echo "dru $VERSION"
+  echo
+  echo "COMMANDS:"
+  echo "dru run       Runs sh in ruby conainer"
+  echo "dru irb       Runs irb in ruby conainer"
+  echo "dru rails     Runs rails command in the container"
+  echo "dru update    Updates dru to the latest stable release"
+  echo "dru uninstall Removes dru from your machine"
+  echo
+  echo "OPTIONS:"
+  echo "-d or --dir   Mount directory (default: current directory)"
+  echo "-t or --tag   Tag of ruby image (default: alpine)"
+  echo "-e or --exec  Execute a custom command in the container"
+}
+
+function tag_info {
+  if [[ $OPT_VERBOSE ]]; then
+    echo -n "The '${OPT_TAG}' tag will be used for the image. "
+    echo -n "To see all possible tags please visit the https://hub.docker.com/_/ruby?tab=tags"
+    echo -e "\n"
+  fi
+}
+
+function cmd_run {
+  tag_info
+  docker run --rm -v "${OPT_DIR}:/usr/src" -w /usr/src -ti ruby:${OPT_TAG} sh
+}
+
+function cmd_irb {
+  tag_info
+  [[ -z "$OPT_EXEC" ]] && OPT_EXEC="irb"
+  docker run --rm -v ${OPT_DIR}:/usr/src -v dru1-bundle:/usr/local/bundle -v dru1-gem:/root/.gem \
+             -w /usr/src -ti ruby:${OPT_TAG} irb
+}
+
+function cmd_rails {
+  tag_info
+  [[ -z "$OPT_EXEC" ]] && OPT_EXEC="'--help'"
+  [[ -n "$OPT_RAILS" ]] && RAILS_VERSION="-v $OPT_RAILS"
+  SUSPEND_LOG=$([[ -z $OPT_VERBOSE ]] && echo "1>/dev/null")
+  DOCKER_COMMAND="apk add --update build-base postgresql-dev sqlite-dev \
+                  mariadb-dev nodejs tzdata $SUSPEND_LOG \
+                  && gem install rails $RAILS_VERSION $SUSPEND_LOG && rails ${OPT_EXEC}"
+  docker run --rm -v ${OPT_DIR}:/usr/src -v dru1-bundle:/usr/local/bundle -v dru1-gem:/root/.gem \
+              -w /usr/src -ti ruby:${OPT_TAG} sh -c "$DOCKER_COMMAND"
+}
+
+function cmd_update {
+  sudo curl -s https://raw.githubusercontent.com/zinovyev/dru/master/dru -o /usr/bin/dru && sudo chmod +x /usr/bin/dru
+}
+
+
+main $@
