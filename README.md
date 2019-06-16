@@ -37,8 +37,8 @@ irb(main):003:0> RUBY_VERSION
 
 ```bash
 
-$ dru rails -r '6.0.0.rc1' -d "${PWD}/testdir" -e 'new ./ --database=postgresql'
-$ ls testdir 
+$ dru rails -r '6.0.0.rc1' -e 'new . --database=postgresql'
+$ ls
 app  bin  config  config.ru  db  Gemfile  Gemfile.lock  lib  log  package.json  public  Rakefile  README.md  storage  test  tmp  vendor
 
 ```
