@@ -1,6 +1,6 @@
 #! /usr/bin/env bash 
 
-VERSION=0.0.1
+VERSION=0.0.2
 DOCKER_USER_ID=$(id -u)
 DOCKER_GROUP_ID=$(id -g)
 
@@ -24,7 +24,7 @@ function main() {
       -r|--rails)
         OPT_RAILS=$1
       ;;
-      run|rails|irb|help|update)
+      run|rails|irb|help|update|uninstall)
         COMMAND=$arg
       ;;
       *)
@@ -59,6 +59,10 @@ function main() {
 
     update)
       cmd_update
+    ;;
+
+    uninstall)
+      cmd_uninstall
     ;;
 
     *)
@@ -116,8 +120,11 @@ function cmd_rails {
 }
 
 function cmd_update {
-  sudo curl -s https://raw.githubusercontent.com/zinovyev/dru/master/dru -o /usr/bin/dru && sudo chmod +x /usr/bin/dru
+  curl -s https://raw.githubusercontent.com/zinovyev/dru/master/dru | sudo sh -c 'cat > /usr/bin/dru && chmod +x /usr/bin/dru'
 }
 
+function cmd_uninstall {
+  sudo sh -c 'rm -rf /usr/bin/dru'
+}
 
 main $@
