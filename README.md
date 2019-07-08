@@ -33,13 +33,16 @@ irb(main):003:0> RUBY_VERSION
 
 ```
 
-**Create a new rails project in the current directory without installing rails locally**
+**Create a new rails project in the current directory without installing rails locally and initialize docker-compose project for a local development.**
 
 ```bash
 
 $ dru rails -r '6.0.0.rc1' -e 'new . --database=postgresql'
 $ ls
 app  bin  config  config.ru  db  Gemfile  Gemfile.lock  lib  log  package.json  public  Rakefile  README.md  storage  test  tmp  vendor
+$ dru project
+$ ls
+app  bin  config  config.ru  db  docker-compose.yml  Dockerfile  Gemfile  Gemfile.lock  lib  log  package.json  public  Rakefile  README.md  storage  test  tmp  vendor
 
 ```
 
@@ -51,6 +54,7 @@ COMMANDS:
 dru run       Runs sh in ruby conainer
 dru irb       Runs irb in ruby conainer
 dru rails     Runs rails command in the container
+dru project   Generate Dockerfile and docker-compose.yml files
 dru update    Updates dru to the latest stable release
 dru uninstall Removes dru from your machine
 

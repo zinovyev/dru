@@ -1,6 +1,6 @@
 #! /usr/bin/env bash 
 
-VERSION=0.0.2
+VERSION=0.0.3
 DOCKER_USER_ID=$(id -u)
 DOCKER_GROUP_ID=$(id -g)
 
@@ -24,7 +24,7 @@ function main() {
       -r|--rails)
         OPT_RAILS=$1
       ;;
-      run|rails|irb|help|update|uninstall)
+      run|rails|irb|project|help|update|uninstall)
         COMMAND=$arg
       ;;
       *)
@@ -57,6 +57,10 @@ function main() {
       cmd_rails
     ;;
 
+    project)
+      cmd_project
+    ;;
+
     update)
       cmd_update
     ;;
@@ -78,6 +82,7 @@ function cmd_help {
   echo "dru run       Runs sh in ruby conainer"
   echo "dru irb       Runs irb in ruby conainer"
   echo "dru rails     Runs rails command in the container"
+  echo "dru project   Generate Dockerfile and docker-compose.yml files"
   echo "dru update    Updates dru to the latest stable release"
   echo "dru uninstall Removes dru from your machine"
   echo
@@ -95,28 +100,38 @@ function tag_info {
   fi
 }
 
+function run_in_docker {
+  DOCKER_COMMAND=$1
+  FULL_COMMAND="docker run --rm -v ${OPT_DIR}:/usr/src -v dru1-bundle:/usr/local/bundle -v dru1-gem:/root/.gem \
+                           -v dru1-apk:/var/cache/apk -w /usr/src -ti ruby:${OPT_TAG} $DOCKER_COMMAND"
+  if [[ $OPT_VERBOSE ]]; then echo $FULL_COMMAND; fi
+  eval $FULL_COMMAND
+  chown_dir
+}
+
+function chown_dir {
+  sudo chown -R "$USER:$(id -gn)" $OPT_DIR
+}
+
 function cmd_run {
   tag_info
-  docker run --rm -v "${OPT_DIR}:/usr/src" -w /usr/src -ti ruby:${OPT_TAG} sh
+  run_in_docker "sh"
 }
 
 function cmd_irb {
   tag_info
-  [[ -z "$OPT_EXEC" ]] && OPT_EXEC="irb"
-  docker run --rm -v ${OPT_DIR}:/usr/src -v dru1-bundle:/usr/local/bundle -v dru1-gem:/root/.gem \
-             -w /usr/src -ti ruby:${OPT_TAG} irb
+  run_in_docker "irb"
 }
 
 function cmd_rails {
   tag_info
-  [[ -z "$OPT_EXEC" ]] && OPT_EXEC="'--help'"
+  [[ -z "$OPT_EXEC" ]] && OPT_EXEC="--help"
   [[ -n "$OPT_RAILS" ]] && RAILS_VERSION="-v $OPT_RAILS"
   SUSPEND_LOG=$([[ -z $OPT_VERBOSE ]] && echo "1>/dev/null")
-  DOCKER_COMMAND="apk add --update build-base postgresql-dev sqlite-dev \
-                  mariadb-dev nodejs tzdata $SUSPEND_LOG \
-                  && gem install rails $RAILS_VERSION $SUSPEND_LOG && rails ${OPT_EXEC}"
-  docker run --rm -v ${OPT_DIR}:/usr/src -v dru1-bundle:/usr/local/bundle -v dru1-gem:/root/.gem \
-              -w /usr/src -ti ruby:${OPT_TAG} sh -c "$DOCKER_COMMAND"
+  DOCKER_COMMAND="apk add --update build-base postgresql-dev sqlite-dev mariadb-dev \
+                                   nodejs tzdata $SUSPEND_LOG && \
+                  gem install rails $RAILS_VERSION $SUSPEND_LOG && rails ${OPT_EXEC}"
+  run_in_docker "sh -c '$DOCKER_COMMAND'"
 }
 
 function cmd_update {
@@ -125,6 +140,58 @@ function cmd_update {
 
 function cmd_uninstall {
   sudo sh -c 'rm -rf /usr/bin/dru'
+}
+
+function cmd_project {
+  # Add Dockerfile
+  FULL_COMMAND="docker run --rm -v ${OPT_DIR}:/usr/src -v dru1-bundle:/usr/local/bundle -v dru1-gem:/root/.gem \
+                           -v dru1-apk:/var/cache/apk -w /usr/src -ti ruby:${OPT_TAG} $DOCKER_COMMAND"
+
+  DOCKER_FILE="${OPT_DIR}/Dockerfile"
+  cat >$DOCKER_FILE <<EOL
+FROM ruby:$OPT_TAG
+ENV APP_PATH="/usr/src"
+ENV RAILS_PORT=3000
+
+RUN apk add --update build-base postgresql-dev sqlite-dev mariadb-dev nodejs tzdata 1>/dev/null
+RUN mkdir -p \$APP_PATH
+WORKDIR \$APP_PATH
+COPY Gemfile \$APP_PATH/Gemfile
+COPY Gemfile.lock \$APP_PATH/Gemfile.lock
+RUN bundle install
+COPY . \$APP_PATH
+
+EXPOSE \$RAILS_PORT
+
+CMD ["rails", "server", "-b", "0.0.0.0"]
+EOL
+
+  # Add docker-compose.yml
+  DOCKER_COMPOSE_FILE="${OPT_DIR}/docker-compose.yml"
+  cat >$DOCKER_COMPOSE_FILE <<EOL
+version: '3'
+services:
+  db:
+    image: postgres
+    volumes:
+      - ./tmp/db:/var/lib/postgresql/data
+  web:
+    build: .
+    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails s -p 3000 -b '0.0.0.0'"
+    volumes:
+      - .:/usr/src
+      - dru1-bundle:/usr/local/bundle
+      - dru1-gem:/root/.gem
+      - dru1-apk:/var/cache/apk
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+volumes:
+  dru1-bundle:
+  dru1-gem:
+  dru1-apk:
+EOL
 }
 
 main $@
