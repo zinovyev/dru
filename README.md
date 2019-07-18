@@ -2,6 +2,8 @@
 
 A ruby-in-docker toolbox
 
+> This library is currently under development. Some options and methods may change in a time.
+
 ## INSTALLATION
 
 ```bash
