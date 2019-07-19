@@ -5,7 +5,7 @@ VERSION = "0.1.0"
 
 export PRJ_LIB
 
-SHELL := /bin/env bash
+SHELL := /bin/bash
 all: define_main add_dependencies invoke_main
 
 define_main:
@@ -26,7 +26,7 @@ add_dependencies:
 test:
 	cd spec; \
 	for filename in ./*; do \
-	  /usr/bin/env bash $$filename; \
+	  bash $$filename; \
 	  if [[ $$? -ne 0 ]]; then \
 	    echo "Spec $$filename failed"; \
 	    exit 1; \

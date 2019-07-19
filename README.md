@@ -2,6 +2,8 @@
 
 A ruby-in-docker toolbox
 
+[![Build Status](https://travis-ci.org/zinovyev/dru.svg?branch=release-0.1.0)](https://travis-ci.org/zinovyev/dru)
+
 > This library is currently under development. Some options and methods may change in a time.
 
 ## INSTALLATION
