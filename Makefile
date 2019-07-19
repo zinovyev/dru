@@ -23,3 +23,13 @@ invoke_main:
 add_dependencies:
 	for filename in $${PRJ_LIB[*]}; do cat $${filename} >> ${TARGET_FILE}; echo >> ${TARGET_FILE}; done
 
+test:
+	cd spec; \
+	for filename in ./*; do \
+	  /usr/bin/env bash $$filename; \
+	  if [[ $$? -ne 0 ]]; then \
+	    echo "Spec $$filename failed"; \
+	    exit 1; \
+	  fi; \
+	done && echo "All tests passed!"
+

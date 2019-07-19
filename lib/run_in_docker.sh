@@ -4,5 +4,5 @@ function run_in_docker {
                            -v dru1-apk:/var/cache/apk -w /usr/src -ti ruby:${OPT_TAG} $DOCKER_COMMAND"
   if [[ $OPT_VERBOSE ]]; then echo $FULL_COMMAND; fi
   eval $FULL_COMMAND
-  chown_dir
+  if [[ $OPT_CHOWN ]]; then chown_dir; fi
 }
