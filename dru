@@ -2,10 +2,6 @@
 
 VERSION=0.1.0
 
-DOCKER_USER_ID=$(id -u)
-
-DOCKER_GROUP_ID=$(id -g)
-
 function main() {
 
   # Parse output
@@ -73,7 +69,10 @@ function main() {
 }
 
 function chown_dir {
-  sudo chown -R "$USER:$(id -gn)" $OPT_DIR
+  DOCKER_USER_ID=$(id -u)
+  DOCKER_GROUP_ID=$(id -g)
+  OPT_CHOWN=1
+  run_in_docker "sh -c 'chown -R ${DOCKER_USER_ID}:${DOCKER_GROUP_ID} /usr/src'"
 }
 
 function cmd_help {
@@ -174,13 +173,22 @@ function cmd_update {
   curl -s https://raw.githubusercontent.com/zinovyev/dru/master/dru | sudo sh -c 'cat > /usr/bin/dru && chmod +x /usr/bin/dru'
 }
 
+function empty_mounted_directory() {
+  if [[ -d $OPT_DIR ]]; then
+    rm -rf $OPT_DIR
+    # run_in_docker "rm -rf /usr/src/*"
+    # sleep 1
+  fi
+}
+
 function run_in_docker {
   DOCKER_COMMAND=$1
-  FULL_COMMAND="docker run --rm -v ${OPT_DIR}:/usr/src -v dru1-bundle:/usr/local/bundle -v dru1-gem:/root/.gem \
-                           -v dru1-apk:/var/cache/apk -w /usr/src -ti ruby:${OPT_TAG} $DOCKER_COMMAND"
-  if [[ $OPT_VERBOSE ]]; then echo $FULL_COMMAND; fi
+  FULL_COMMAND="docker run --rm -v \"${OPT_DIR}:/usr/src\" -v \"dru1-bundle:/usr/local/bundle\" \
+                                -v \"dru1-gem:/root/.gem\" -v \"dru1-apk:/var/cache/apk\" \
+                                -w /usr/src -ti ruby:${OPT_TAG} $DOCKER_COMMAND"
+  [[ $OPT_VERBOSE ]] && echo $FULL_COMMAND
   eval $FULL_COMMAND
-  chown_dir
+  [[ -z $OPT_CHOWN ]] && chown_dir
 }
 
 function tag_info {
