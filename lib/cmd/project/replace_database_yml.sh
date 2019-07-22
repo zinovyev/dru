@@ -3,7 +3,7 @@ function replace_database_yml() {
   PROJECT_NAME=$(basename $OPT_DIR)
   [[ ! -f $DATABASE_YML ]] && return
   mv $DATABASE_YML "${DATABASE_YML}.bkp"
-  cat >$DOCKER_COMPOSE_FILE <<EOL
+  cat >$DATABASE_YML <<EOL
 # PostgreSQL. Versions 9.1 and up are supported.
 #
 # Install the pg driver:

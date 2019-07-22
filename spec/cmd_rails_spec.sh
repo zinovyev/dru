@@ -1,4 +1,5 @@
 source "./assert.sh"
+source "..lib/chown_dir.sh"
 source "../lib/tag_info.sh"
 source "../lib/run_in_docker.sh"
 source "../lib/empty_mounted_directory.sh"
