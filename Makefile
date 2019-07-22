@@ -1,6 +1,6 @@
 TARGET_FILE = "dru"
 PRJ_SRC = "${PWD}/src/main.sh"
-PRJ_LIB = $(shell ls -d ${PWD}/lib/*.sh ${PWD}/lib/**/*.sh)
+PRJ_LIB = $(shell find -L lib -type f -name "*sh")
 VERSION = $(shell git tag | tail -n1 | sed -e 's/^v//')
 
 export PRJ_LIB
