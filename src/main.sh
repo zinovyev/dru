@@ -17,7 +17,7 @@ for arg in $@; do
     -r|--rails)
       OPT_RAILS=$1
     ;;
-    run|rails|irb|project|help|update|uninstall)
+    run|shell|rails|irb|project|help|update|uninstall)
       COMMAND=$arg
     ;;
     *)
@@ -37,8 +37,8 @@ fi
 
 # Execute commands
 case $COMMAND in
-  run)
-    cmd_run
+  shell|run)
+    cmd_shell
   ;;
   irb)
     cmd_irb

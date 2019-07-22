@@ -23,7 +23,7 @@ function main() {
       -r|--rails)
         OPT_RAILS=$1
       ;;
-      run|rails|irb|project|help|update|uninstall)
+      run|shell|rails|irb|project|help|update|uninstall)
         COMMAND=$arg
       ;;
       *)
@@ -43,8 +43,8 @@ function main() {
   
   # Execute commands
   case $COMMAND in
-    run)
-      cmd_run
+    shell|run)
+      cmd_shell
     ;;
     irb)
       cmd_irb
@@ -79,8 +79,8 @@ function cmd_help {
   echo "dru $VERSION"
   echo
   echo "COMMANDS:"
-  echo "dru run       Runs sh in ruby conainer"
-  echo "dru irb       Runs irb in ruby conainer"
+  echo "dru shell     Runs sh from a ruby conainer"
+  echo "dru irb       Runs irb from a ruby conainer"
   echo "dru rails     Runs rails command in the container"
   echo "dru project   Generate Dockerfile and docker-compose.yml files"
   echo "dru update    Updates dru to the latest stable release"
@@ -160,7 +160,7 @@ function cmd_rails {
   run_in_docker "sh -c '$DOCKER_COMMAND'"
 }
 
-function cmd_run {
+function cmd_shell {
   tag_info
   run_in_docker "sh"
 }
@@ -175,9 +175,8 @@ function cmd_update {
 
 function empty_mounted_directory() {
   if [[ -d $OPT_DIR ]]; then
-    rm -rf $OPT_DIR
-    # run_in_docker "rm -rf /usr/src/*"
-    # sleep 1
+    run_in_docker "rm -rf /usr/src/*"
+    sleep 1
   fi
 }
 
