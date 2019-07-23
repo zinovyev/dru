@@ -4,6 +4,7 @@
 Run any Ruby or Rails command without need to install them locally.
 
 [![Build Status](https://travis-ci.org/zinovyev/dru.svg?branch=release-0.1.0)](https://travis-ci.org/zinovyev/dru)
+![GitHub tag (latest SemVer)](https://img.shields.io/github/tag/zinovyev/dru.svg)
 
 > This utility is under active development. Some commands and options may change in a time.
 
