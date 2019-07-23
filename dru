@@ -75,33 +75,131 @@ function chown_dir {
   run_in_docker "sh -c 'chown -R ${DOCKER_USER_ID}:${DOCKER_GROUP_ID} /usr/src'"
 }
 
-function cmd_help {
-  echo "dru $VERSION"
-  echo
-  echo "COMMANDS:"
-  echo "dru shell     Runs sh from a ruby conainer"
-  echo "dru irb       Runs irb from a ruby conainer"
-  echo "dru rails     Runs rails command in the container"
-  echo "dru project   Generate Dockerfile and docker-compose.yml files"
-  echo "dru update    Updates dru to the latest stable release"
-  echo "dru uninstall Removes dru from your machine"
-  echo
-  echo "OPTIONS:"
-  echo "-d or --dir   Mount directory (default: current directory)"
-  echo "-t or --tag   Tag of ruby image (default: alpine)"
-  echo "-e or --exec  Execute a custom command in the container"
+function cmd_shell {
+  tag_info
+  run_in_docker "sh"
 }
 
-function cmd_irb {
+function cmd_rails {
   tag_info
-  run_in_docker "irb"
+  [[ -z "$OPT_EXEC" ]] && OPT_EXEC="--help"
+  [[ -n "$OPT_RAILS" ]] && RAILS_VERSION="-v $OPT_RAILS"
+  SUSPEND_LOG=$([[ -z $OPT_VERBOSE ]] && echo "1>/dev/null")
+  DOCKER_COMMAND="apk add --update build-base postgresql-dev sqlite-dev mariadb-dev \
+                                   nodejs tzdata $SUSPEND_LOG && \
+                  gem install rails $RAILS_VERSION $SUSPEND_LOG && rails ${OPT_EXEC}"
+  run_in_docker "sh -c '$DOCKER_COMMAND'"
+}
+
+function cmd_update {
+  curl -s https://raw.githubusercontent.com/zinovyev/dru/master/dru | sudo sh -c 'cat > /usr/bin/dru && chmod +x /usr/bin/dru'
 }
 
 function cmd_project {
-  # Add Dockerfile
-  FULL_COMMAND="docker run --rm -v ${OPT_DIR}:/usr/src -v dru1-bundle:/usr/local/bundle -v dru1-gem:/root/.gem \
-                           -v dru1-apk:/var/cache/apk -w /usr/src -ti ruby:${OPT_TAG} $DOCKER_COMMAND"
+  mkdir -p $OPT_DIR
+  create_dockerfile
+  create_docker_compose
+  replace_database_yml
+}
 
+function replace_database_yml() {
+  DATABASE_YML="${OPT_DIR}/config/database.yml"
+  PROJECT_NAME=$(basename $OPT_DIR)
+  [[ ! -f $DATABASE_YML ]] && return
+  mv $DATABASE_YML "${DATABASE_YML}.bkp"
+  cat >$DATABASE_YML <<EOL
+# PostgreSQL. Versions 9.1 and up are supported.
+#
+# Install the pg driver:
+#   gem install pg
+# On OS X with Homebrew:
+#   gem install pg -- --with-pg-config=/usr/local/bin/pg_config
+# On OS X with MacPorts:
+#   gem install pg -- --with-pg-config=/opt/local/lib/postgresql84/bin/pg_config
+# On Windows:
+#   gem install pg
+#       Choose the win32 build.
+#       Install PostgreSQL and put its /bin directory on your path.
+#
+# Configure Using Gemfile
+# gem 'pg'
+#
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: db
+  username: postgres
+  password:
+  # For details on connection pooling, see Rails configuration guide
+  # http://guides.rubyonrails.org/configuring.html#database-pooling
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+development:
+  <<: *default
+  database: ${PROJECT_NAME}_development
+
+  # The specified database role being used to connect to postgres.
+  # To create additional roles in postgres see `$ createuser --help`.
+  # When left blank, postgres will use the default role. This is
+  # the same name as the operating system user that initialized the database.
+  #username: ${PROJECT_NAME}
+
+  # The password associated with the postgres role (username).
+  #password:
+
+  # Connect on a TCP socket. Omitted by default since the client uses a
+  # domain socket that doesn't need configuration. Windows does not have
+  # domain sockets, so uncomment these lines.
+  #host: localhost
+
+  # The TCP port the server listens on. Defaults to 5432.
+  # If your server runs on a different port number, change accordingly.
+  #port: 5432
+
+  # Schema search path. The server defaults to \$user,public
+  #schema_search_path: myapp,sharedapp,public
+
+  # Minimum log levels, in increasing order:
+  #   debug5, debug4, debug3, debug2, debug1,
+  #   log, notice, warning, error, fatal, and panic
+  # Defaults to warning.
+  #min_messages: notice
+
+# Warning: The database defined as "test" will be erased and
+# re-generated from your development database when you run "rake".
+# Do not set this db to the same as development or production.
+test:
+  <<: *default
+  database: ${PROJECT_NAME}_test
+
+# As with config/secrets.yml, you never want to store sensitive information,
+# like your database password, in your source code. If your source code is
+# ever seen by anyone, they now have access to your database.
+#
+# Instead, provide the password as a unix environment variable when you boot
+# the app. Read http://guides.rubyonrails.org/configuring.html#configuring-a-database
+# for a full rundown on how to provide these environment variables in a
+# production deployment.
+#
+# On Heroku and other platform providers, you may have a full connection URL
+# available as an environment variable. For example:
+#
+#   DATABASE_URL="postgres://myuser:mypass@localhost/somedatabase"
+#
+# You can use this database configuration with:
+#
+#   production:
+#     url: <%= ENV['DATABASE_URL'] %>
+#
+production:
+  <<: *default
+  database: ${PROJECT_NAME}_production
+  username: ${PROJECT_NAME}
+  password: <%= ENV['SRC_DATABASE_PASSWORD'] %>
+EOL
+}
+
+function create_dockerfile() {
   DOCKER_FILE="${OPT_DIR}/Dockerfile"
   cat >$DOCKER_FILE <<EOL
 FROM ruby:$OPT_TAG
@@ -120,8 +218,9 @@ EXPOSE \$RAILS_PORT
 
 CMD ["rails", "server", "-b", "0.0.0.0"]
 EOL
+}
 
-  # Add docker-compose.yml
+function create_docker_compose() {
   DOCKER_COMPOSE_FILE="${OPT_DIR}/docker-compose.yml"
   cat >$DOCKER_COMPOSE_FILE <<EOL
 version: '3'
@@ -149,34 +248,44 @@ volumes:
 EOL
 }
 
-function cmd_rails {
-  tag_info
-  [[ -z "$OPT_EXEC" ]] && OPT_EXEC="--help"
-  [[ -n "$OPT_RAILS" ]] && RAILS_VERSION="-v $OPT_RAILS"
-  SUSPEND_LOG=$([[ -z $OPT_VERBOSE ]] && echo "1>/dev/null")
-  DOCKER_COMMAND="apk add --update build-base postgresql-dev sqlite-dev mariadb-dev \
-                                   nodejs tzdata $SUSPEND_LOG && \
-                  gem install rails $RAILS_VERSION $SUSPEND_LOG && rails ${OPT_EXEC}"
-  run_in_docker "sh -c '$DOCKER_COMMAND'"
-}
-
-function cmd_shell {
-  tag_info
-  run_in_docker "sh"
+function cmd_help {
+  echo "dru $VERSION"
+  echo
+  echo "COMMANDS:"
+  echo "dru shell     Runs sh from a ruby conainer"
+  echo "dru irb       Runs irb from a ruby conainer"
+  echo "dru rails     Runs rails command in the container"
+  echo "dru project   Generate Dockerfile and docker-compose.yml files"
+  echo "dru update    Updates dru to the latest stable release"
+  echo "dru uninstall Removes dru from your machine"
+  echo
+  echo "OPTIONS:"
+  echo "-d or --dir   Mount directory (default: current directory)"
+  echo "-t or --tag   Tag of ruby image (default: alpine)"
+  echo "-e or --exec  Execute a custom command in the container"
 }
 
 function cmd_uninstall {
   sudo sh -c 'rm -rf /usr/bin/dru'
 }
 
-function cmd_update {
-  curl -s https://raw.githubusercontent.com/zinovyev/dru/master/dru | sudo sh -c 'cat > /usr/bin/dru && chmod +x /usr/bin/dru'
+function cmd_irb {
+  tag_info
+  run_in_docker "irb"
 }
 
 function empty_mounted_directory() {
   if [[ -d $OPT_DIR ]]; then
     run_in_docker "rm -rf /usr/src/*"
     sleep 1
+  fi
+}
+
+function tag_info {
+  if [[ $OPT_VERBOSE ]]; then
+    echo -n "The '${OPT_TAG}' tag will be used for the image. "
+    echo -n "To see all possible tags please visit the https://hub.docker.com/_/ruby?tab=tags"
+    echo -e "\n"
   fi
 }
 
@@ -188,14 +297,6 @@ function run_in_docker {
   [[ $OPT_VERBOSE ]] && echo $FULL_COMMAND
   eval $FULL_COMMAND
   [[ -z $OPT_CHOWN ]] && chown_dir
-}
-
-function tag_info {
-  if [[ $OPT_VERBOSE ]]; then
-    echo -n "The '${OPT_TAG}' tag will be used for the image. "
-    echo -n "To see all possible tags please visit the https://hub.docker.com/_/ruby?tab=tags"
-    echo -e "\n"
-  fi
 }
 
 main $@

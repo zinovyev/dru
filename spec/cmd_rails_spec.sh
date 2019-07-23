@@ -1,4 +1,5 @@
 source "./assert.sh"
+source "../lib/chown_dir.sh"
 source "../lib/tag_info.sh"
 source "../lib/run_in_docker.sh"
 source "../lib/empty_mounted_directory.sh"
@@ -16,11 +17,11 @@ cmd_rails
 
 wc_all=$(ls ./tmp* | wc -l)
 assert_gt $wc_all 0 "Rails dir should not be empty"
-[[ "$?" == 0 ]] && log_success "Rails dir is not empty"
+[[ "$?" == 0 ]] && log_success "Rails dir is not empty" || exit $?
 
 wc_app=$(find ./tmp -maxdepth 1 -type d -name app | wc -l)
 assert_eq $wc_app 1 "Rails dir should contain app dir"
-[[ "$?" == 0 ]] && log_success "Rails dir contains app directory"
+[[ "$?" == 0 ]] && log_success "Rails dir contains app directory" || exit $?
 
 empty_mounted_directory
 
